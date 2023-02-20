@@ -106,7 +106,7 @@ per.sample.error<-function(df, seg.tile.error, arm.tile.error, be.model) {
   # covariance
   covB = cov(coef.error[,'jack.se',drop=F])[1]
   X = t(df[,coef.error$coef,drop=F])
-  B = coef.error[,'1',drop=F] %>% data.frame
+  B = coef.error[,'s1',drop=F] %>% data.frame
   
   Var_rr = apply(X,2,function(x) sum(x*covB*x)) + sapply(Xerr_diag, function(x) sum(B*x*B))
   perSampleError = sqrt( Var_rr )
