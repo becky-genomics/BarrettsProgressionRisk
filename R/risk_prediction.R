@@ -187,7 +187,7 @@ predictRiskFromSegments<-function(obj, be.model = NULL, verbose=T) {
     
   # Tile, scale, then merge segmented values into 5Mb and arm-length windows across the genome.
   binnedSamples = tryCatch({
-    BarrettsProgressionRisk:::tileSamples(obj, be.model, scale=T, MARGIN=2, verbose=verbose)
+    tileSamples(obj, be.model, scale=T, MARGIN=2, verbose=verbose)
   }, error = function(e) {
     msg = paste("ERROR tiling segmented data:", e)
     stop(msg)
