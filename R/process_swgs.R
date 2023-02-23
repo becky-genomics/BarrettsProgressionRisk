@@ -10,7 +10,7 @@ runQDNAseq<-function(bam=NULL,path=NULL,outputPath=NULL, minMapQ=37, binsize=50)
   require(QDNAseq) 
   require(tidyverse) 
   
-  if ((!is.null(bam) && !file.exists(bam)) || rev(unlist(strsplit(basename(bam), '\\.')))[1] != 'bam' ) {
+  if ((!is.null(bam) && !file.exists(bam)) || rev(unlist(strsplit(basename(bam), '\\.bam')))[1] != 'bam' ) {
     error = paste0('BAM file "', bam, '" does not exist.')
   } else if (is.null(bam) && length(list.files(path, 'bam')) <= 0) {
     error = paste(error, "No bam files found in current directory. Exiting.", sep='\n')
