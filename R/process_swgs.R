@@ -12,9 +12,6 @@ runQDNAseq<-function(bam=NULL,path=NULL,outputPath=NULL, minMapQ=37, binsize=50)
   
   if ((!is.null(bam) && !file.exists(bam)) || rev(unlist(strsplit(basename(bam), '\\.')))[1] != 'bam' ) 
 
-  if (!is.null(error)) 
-    stop(error)
-
   if (binsize != 50) 
     warning("Internal model was generated using data processed with a 50kb bin size for QDNAseq. Using a different bin size is not recommended.")
   
