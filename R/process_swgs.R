@@ -87,6 +87,87 @@ runQDNAseq<-function(bam=NULL,path=NULL,outputPath=NULL, minMapQ=37, binsize=50)
   dev.off()
 }
 
+runQDNAseq_path<-function(bam=NULL,path=NULL,outputPath=NULL, minMapQ=37, binsize=50) {
+  require(Biobase) 
+  require(QDNAseq) 
+  require(tidyverse) 
+  
+
+  if (binsize != 50) 
+    warning("Internal model was generated using data processed with a 50kb bin size for QDNAseq. Using a different bin size is not recommended.")
+  
+  if (!dir.exists(outputPath))
+    dir.create(outputPath, recursive = T)
+  
+  # get/read bin annotations
+  bins <- QDNAseq::getBinAnnotations(binSize = binsize)
+  
+  saveRDS(bins, paste(outputPath, paste0(binsize,"kbp.rds"), sep='/'))
+
+  # write bin annotations
+  pData(bins) %>%
+    dplyr::mutate_at(vars(start, end), list(as.integer)) %>%
+    write_tsv(paste(outputPath,paste0(binsize,"kbp.txt"),sep='/'))
+  
+  # process BAM files obtaining read counts within bins
+  if (!is.null(bam)) {
+    message(paste0('Binning read counts (min mapQ=',minMapQ,') from ', bam))
+    readCounts <- QDNAseq::binReadCounts(bins, bamfiles=bam, minMapq=minMapQ)
+  } else {
+    message(paste0('Binning read counts from BAM files in ', path))
+    readCounts <- QDNAseq::binReadCounts(bins, path=path, minMapq=minMapQ)
+  }
+  
+  pData(readCounts) %>%
+    rownames_to_column(var = "sample") %>%
+    dplyr::select(id = name, everything()) %>%
+    write_tsv(paste(outputPath,"readCountSummary.txt",sep='/'))
+  
+  QDNAseq::exportBins(readCounts, paste(outputPath,"readCounts.txt",sep='/'), logTransform = FALSE)
+  
+  saveRDS(readCounts, paste(outputPath,"readCounts.rds",sep='/'))
+
+  # apply filters for which bins are used, including loess residuals of calibration set
+  # and blacklisted regions both taken from bin annotations
+  readCountsFiltered <- QDNAseq::applyFilters(readCounts, residual = TRUE, blacklist = TRUE)
+  
+  # fix for issue with copy number segmentation arising from zero count bins
+  # plot median read counts as a function of GC content and mappability as an isobar plot
+  pdf(paste(outputPath,"isobar.pdf",sep='/'))
+  isobarPlot(readCountsFiltered)
+  dev.off()
+  
+  # estimate the correction for GC content and mappability
+  readCountsCorrected <- QDNAseq::estimateCorrection(readCountsFiltered)
+  
+  # output raw and fitted read counts
+  features <- fData(readCountsCorrected) %>%
+    as.data.frame %>%
+    rownames_to_column(var = "location") %>%
+    transmute(location, chrom = chromosome, start = as.integer(start), end = as.integer(end))
+  
+  rawReadCounts <- assayData(readCountsCorrected)$counts %>%
+    as.data.frame %>%
+    rownames_to_column(var = "location")
+  features %>%
+    dplyr::left_join(rawReadCounts, by = "location") %>%
+    write_tsv(paste(outputPath,"rawReadCounts.txt",sep='/'))
+  
+  fittedReadCounts <- assayData(readCountsCorrected)$fit %>%
+    as.data.frame %>%
+    rownames_to_column(var = "location") %>%
+    mutate_if(is.numeric, list(~round(., digits = 3)))
+  features %>%
+    dplyr::left_join(fittedReadCounts, by = "location") %>%
+    write_tsv(paste(outputPath,"fittedReadCounts.txt",sep='/'))
+  
+  # noise plot showing relationship between the observed standard deviation in the data
+  # and its read depth
+  pdf(paste(outputPath,"noise.pdf",sep='/'))
+  noisePlot(readCountsCorrected)
+  dev.off()
+}
+
 #' Set up the sample information required for analysis.
 #' @name loadSampleInformation
 #' @param samples Either a filename or dataframe with appropriate information
